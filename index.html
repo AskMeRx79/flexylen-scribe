@@ -566,7 +566,10 @@ async function generate() {
     } else if (err instanceof Anthropic.RateLimitError) {
       setStatus("Rate limited by the API — wait a moment and try again.", "err");
     } else if (err instanceof Anthropic.APIConnectionError) {
-      setStatus("Could not reach the Anthropic API. Check your internet connection or practice firewall.", "err");
+      setStatus("Could not connect to the Anthropic API. Common causes:<br>" +
+        "• The page is open in an app’s file preview (e.g. a Files, email or chat attachment viewer), which blocks internet access. Open it in Chrome, Edge or Safari instead.<br>" +
+        "• No internet connection.<br>" +
+        "• A practice network or firewall blocking <strong>api.anthropic.com</strong>. Ask IT to allow it, or try on another network.", "err");
     } else if (err instanceof Anthropic.APIError) {
       setStatus(`API error (${err.status ?? "?"}): ${escapeHtml(err.message)}`, "err");
     } else {
@@ -678,6 +681,19 @@ const saved = safeGet(KEY_STORE);
 if (saved) { $("apiKey").value = saved; $("rememberKey").checked = true; }
 else { $("settingsBox").open = true; }
 updateCount();
+window.__scribeReady = true;
+</script>
+<script>
+  // If the module above could not load (e.g. the CDN is blocked or the page is in a sandboxed preview),
+  // the buttons would do nothing. Tell the user why instead.
+  window.addEventListener("load", function () {
+    setTimeout(function () {
+      if (window.__scribeReady) return;
+      var s = document.getElementById("status");
+      s.className = "err";
+      s.innerHTML = "The scribe could not load its components, so the buttons won’t work. Open this page in Chrome, Edge or Safari (not an app’s file preview), check your internet connection, and ask IT to allow <strong>cdn.jsdelivr.net</strong> and <strong>api.anthropic.com</strong> if you are on a practice network.";
+    }, 4000);
+  });
 </script>
 </body>
 </html>
