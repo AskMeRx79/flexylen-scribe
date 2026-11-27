@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flexylen Consultation Scribe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  /* Flexylen brand palette (from the Flexylen design system) */
+  :root {
+    --fx-blue: oklch(0.52 0.19 263); --fx-blue-light: oklch(0.77 0.11 265); --fx-blue-dark: oklch(0.39 0.16 265);
+    --fx-green: oklch(0.54 0.12 160); --fx-green-light: oklch(0.85 0.1 163);
+    --fx-yellow: oklch(0.8 0.15 80); --fx-yellow-light: oklch(0.94 0.1 95); --fx-yellow-dark: oklch(0.65 0.14 75);
+    --fx-purple: oklch(0.5 0.2 287);
+    --fx-cyan: oklch(0.72 0.13 210);
+    --fx-red: oklch(0.56 0.17 18);
+    --hero-1: oklch(0.36 0.15 265); --hero-2: oklch(0.16 0.06 265); --hero-glow: oklch(0.6 0.16 245 / 0.45);
+
+    --bg: oklch(0.973 0.006 264);
+    --card: oklch(1 0 0);
+    --ink: oklch(0.23 0.03 264);
+    --muted: oklch(0.5 0.03 264);
+    --line: oklch(0.9 0.015 264);
+    --soft: oklch(0.95 0.01 264);
+    --input-bg: oklch(1 0 0);
+    --primary: var(--fx-blue);
+    --heading: var(--fx-blue-dark);
+    --warn-bg: oklch(0.97 0.05 95);
+    --warn-line: var(--fx-yellow);
+    --warn-ink: oklch(0.42 0.09 70);
+    --ok: var(--fx-green);
+    --err: var(--fx-red);
+    --shadow: 0 4px 14px oklch(0.23 0.03 264 / 0.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: oklch(0.129 0.042 264.7);
+      --card: oklch(0.208 0.042 265.8);
+      --ink: oklch(0.984 0.003 247.9);
+      --muted: oklch(0.704 0.04 256.8);
+      --line: oklch(1 0 0 / 12%);
+      --soft: oklch(0.279 0.041 260);
+      --input-bg: oklch(0.17 0.04 265);
+      --heading: var(--fx-blue-light);
+      --warn-bg: oklch(0.3 0.06 80);
+      --warn-ink: var(--fx-yellow-light);
+      --ok: var(--fx-green-light);
+      --err: oklch(0.72 0.17 25);
+      --shadow: 0 4px 14px oklch(0 0 0 / 0.35);
+    }
+  }
+  body {
+    font-family: "Nunito", system-ui, sans-serif;
+    background: var(--bg);
+    min-height: 100vh;
+    color: var(--ink);
+    padding: 1.25rem;
+  }
+  h1, h2, .logo, .btn { font-family: "Fredoka", "Nunito", sans-serif; }
+  .container { max-width: 1400px; margin: 0 auto; }
+  .card { background: var(--card); border-radius: 16px; box-shadow: var(--shadow); border: 1px solid var(--line); }
+
+  header.hero {
+    background: radial-gradient(circle at 85% 0%, var(--hero-glow), transparent 45%), linear-gradient(150deg, var(--hero-1), var(--hero-2));
+    color: oklch(0.99 0 0);
+    border-radius: 18px; padding: 1.5rem 2rem 1.75rem; margin-bottom: 1rem; box-shadow: var(--shadow);
+    position: relative; overflow: hidden;
+  }
+  .stripe { display: flex; height: 6px; border-radius: 6px; overflow: hidden; margin-top: 1.1rem; max-width: 260px; }
+  .stripe span { flex: 1; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .logo { font-size: 26px; font-weight: 700; color: white; text-decoration: none; letter-spacing: .3px; }
+  .logo .dot { color: var(--fx-yellow); }
+  .tag { background: oklch(1 0 0 / 0.14); border: 1px solid oklch(1 0 0 / 0.3); color: white; padding: 5px 14px; border-radius: 999px; font-weight: 700; font-size: 13px; }
+  h1 { font-size: 34px; font-weight: 600; margin-top: .9rem; }
+  .subtitle { color: oklch(0.9 0.03 264); margin-top: .25rem; font-size: 16px; }
+
+  .notice {
+    background: var(--warn-bg); border: 1px solid var(--warn-line); color: var(--warn-ink);
+    border-radius: 12px; padding: .75rem 1rem; margin-bottom: 1rem; font-size: 14px; line-height: 1.5;
+  }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .panel { padding: 1.5rem; display: flex; flex-direction: column; min-width: 0; }
+  .panel h2 { color: var(--heading); font-size: 21px; font-weight: 600; margin-bottom: .75rem; display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; }
+  .step { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--fx-yellow); color: oklch(0.23 0.03 264); font-size: 15px; margin-right: .4rem; }
+
+  label { font-weight: 700; font-size: 14px; display: block; margin-bottom: .3rem; }
+  .hint { color: var(--muted); font-size: 13px; font-weight: normal; }
+  select, input[type=text], input[type=password], textarea {
+    width: 100%; font: inherit; font-size: 14px; padding: .6rem .7rem;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--input-bg); color: var(--ink);
+  }
+  textarea { resize: vertical; line-height: 1.5; }
+  select:focus, input:focus, textarea:focus { outline: 2px solid var(--fx-blue-light); outline-offset: 0; border-color: var(--primary); }
+
+  #transcript { min-height: 320px; flex: 1; }
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .75rem; margin-bottom: .9rem; }
+  .field { margin-bottom: .9rem; }
+  .check { display: flex; align-items: flex-start; gap: .5rem; font-size: 14px; margin-bottom: .5rem; font-weight: normal; }
+  .check input { margin-top: 3px; accent-color: var(--fx-blue); }
+
+  .btn {
+    font-size: 15px; font-weight: 600; border-radius: 12px; padding: .6rem 1.15rem;
+    border: 1px solid transparent; cursor: pointer; transition: transform .15s, opacity .15s, filter .15s;
+  }
+  .btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.05); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary {
+    color: white; border-color: oklch(1 0 0 / 0.35); box-shadow: 0 4px 12px oklch(0.39 0.16 265 / 0.3);
+    background: linear-gradient(180deg, oklch(1 0 0 / .35), oklch(1 0 0 / .08) 24%, transparent 44%),
+                linear-gradient(135deg, var(--fx-blue-light), var(--fx-blue) 58%, var(--fx-blue-dark));
+  }
+  .btn-ghost { background: var(--card); color: var(--heading); border-color: var(--line); }
+  .btn-ghost:hover:not(:disabled) { border-color: var(--fx-blue-light); }
+  .btn-small { padding: .35rem .75rem; font-size: 13px; border-radius: 10px; }
+  .actions { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin-top: 1rem; }
+  .meta { font-size: 13px; color: var(--muted); }
+
+  .drop { border: 2px dashed transparent; border-radius: 12px; }
+  .drop.over { border-color: var(--fx-blue); background: var(--soft); }
+
+  details.settings { border: 1px solid var(--line); border-radius: 12px; padding: .6rem .9rem; margin-bottom: .9rem; background: var(--soft); }
+  details.settings summary { cursor: pointer; font-weight: 700; font-size: 14px; }
+  details.settings[open] summary { margin-bottom: .75rem; }
+
+  #status { font-size: 14px; margin-top: .5rem; min-height: 1.2em; }
+  #status.err { color: var(--err); }
+  #status.ok { color: var(--ok); }
+
+  .empty { color: var(--muted); text-align: center; padding: 3rem 1rem; border: 1px dashed var(--line); border-radius: 12px; }
+  .section { border: 1px solid var(--line); border-left: 4px solid var(--fx-blue); border-radius: 12px; margin-bottom: .75rem; overflow: hidden; background: var(--card); }
+  .section-head { display: flex; justify-content: space-between; align-items: center; background: var(--soft); padding: .45rem .8rem; border-bottom: 1px solid var(--line); }
+  .section-head strong { color: var(--heading); font-size: 14px; font-family: "Fredoka", "Nunito", sans-serif; font-weight: 600; }
+  .section textarea { border: 0; border-radius: 0; min-height: 60px; resize: vertical; background: var(--card); }
+  .section textarea:focus { outline: none; background: var(--soft); }
+  .section.flags { border-color: var(--warn-line); border-left-color: var(--fx-yellow-dark); }
+  .section.flags .section-head { background: var(--warn-bg); }
+  .section.flags .section-head strong { color: var(--warn-ink); }
+
+  #live { white-space: pre-wrap; font-size: 14px; line-height: 1.5; background: var(--soft); border-radius: 12px; padding: 1rem; color: var(--ink); max-height: 520px; overflow: auto; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--fx-blue-light); border-top-color: var(--fx-blue-dark); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .footer { text-align: center; padding: 1.5rem; color: var(--muted); font-size: 14px; }
+  .footer a { color: var(--heading); font-weight: 700; }
+
+  @media (max-width: 900px) {
+    body { padding: .75rem; }
+    .grid { grid-template-columns: 1fr; }
+    header.hero, .panel { padding: 1.1rem; }
+    h1 { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header class="hero">
+    <div class="top">
+      <span class="logo">Flexylen<span class="dot">.</span></span>
+      <span class="tag">Clinical tools</span>
+    </div>
+    <h1>Consultation Scribe</h1>
+    <p class="subtitle">Paste a consultation transcript and get structured clinical notes ready to paste into EMIS or SystmOne.</p>
+    <div class="stripe" aria-hidden="true">
+      <span style="background:var(--fx-blue)"></span><span style="background:var(--fx-green)"></span><span style="background:var(--fx-yellow)"></span><span style="background:var(--fx-red)"></span><span style="background:var(--fx-purple)"></span><span style="background:var(--fx-cyan)"></span>
+    </div>
+  </header>
+
+  <div class="notice">
+    <strong>Clinical safety:</strong> notes are an AI-generated draft. You must read, correct and approve every line before it enters the record.
+    <strong>Information governance:</strong> the transcript is sent to the Anthropic API from your browser. Only use with real patient data if your practice has approved this (DPIA / IG sign-off). Leave “Remove identifiers” switched on.
+  </div>
+
+  <div class="grid">
+    <!-- INPUT -->
+    <section class="card panel" aria-labelledby="in-h">
+      <h2 id="in-h"><span><span class="step">1</span>Transcript</span>
+        <span>
+          <button class="btn btn-ghost btn-small" id="loadSample" type="button">Load example</button>
+          <button class="btn btn-ghost btn-small" id="uploadBtn" type="button">Upload .txt / .vtt</button>
+          <input type="file" id="fileInput" accept=".txt,.vtt,.srt,.md,text/plain" hidden>
+        </span>
+      </h2>
+
+      <details class="settings" id="settingsBox">
+        <summary>Settings — API key &amp; model</summary>
+        <div class="field">
+          <label for="apiKey">Anthropic API key <span class="hint">(kept in this browser only)</span></label>
+          <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off">
+          <label class="check" style="margin-top:.4rem"><input type="checkbox" id="rememberKey"> Remember key on this device</label>
+        </div>
+        <div class="row" style="margin-bottom:0">
+          <div>
+            <label for="model">Model</label>
+            <select id="model">
+              <option value="claude-opus-5-5" selected>Claude Opus 5.5 (best)</option>
+              <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (faster)</option>
+            </select>
+          </div>
+          <div>
+            <label for="effort">Thoroughness</label>
+            <select id="effort">
+              <option value="medium">Standard</option>
+              <option value="high" selected>High</option>
+              <option value="xhigh">Very high (slower)</option>
+            </select>
+          </div>
+        </div>
+      </details>
+
+      <div class="row">
+        <div>
+          <label for="format">Note format</label>
+          <select id="format">
+            <option value="emis" selected>EMIS / SystmOne headings</option>
+            <option value="soap">SOAP</option>
+            <option value="smr">Structured Medication Review</option>
+            <option value="brief">Brief (telephone / follow-up)</option>
+          </select>
+        </div>
+        <div>
+          <label for="mode">Consultation type</label>
+          <select id="mode">
+            <option>Face to face</option>
+            <option>Telephone</option>
+            <option>Video</option>
+            <option>Home visit</option>
+          </select>
+        </div>
+        <div>
+          <label for="role">Clinician</label>
+          <select id="role">
+            <option>Clinical pharmacist (independent prescriber)</option>
+            <option>GP</option>
+            <option>ANP / nurse practitioner</option>
+            <option>Practice nurse</option>
+            <option>Physician associate</option>
+            <option>Paramedic</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field drop" id="dropZone">
+        <label for="transcript">Transcript <span class="hint">— paste here or drop a file</span></label>
+        <textarea id="transcript" placeholder="Clinician: Hello, what can I do for you today?&#10;Patient: I've had a cough for about two weeks..."></textarea>
+        <div class="meta" id="wordCount">0 words</div>
+      </div>
+
+      <div class="field">
+        <label for="extra">Extra details not in the transcript <span class="hint">(optional — obs, exam findings, results)</span></label>
+        <textarea id="extra" rows="3" placeholder="e.g. BP 142/88, HR 76 reg, SpO2 97% RA, chest clear"></textarea>
+      </div>
+
+      <label class="check"><input type="checkbox" id="redact" checked> Remove identifiers before sending (NHS numbers, dates of birth, phone numbers, emails, postcodes)</label>
+      <label class="check"><input type="checkbox" id="spelling" checked> Use British English and UK clinical conventions (NICE / BNF)</label>
+
+      <div class="actions">
+        <button class="btn btn-primary" id="generate" type="button">Generate notes</button>
+        <button class="btn btn-ghost" id="stop" type="button" hidden>Stop</button>
+        <button class="btn btn-ghost" id="copyPrompt" type="button" title="Copy the full prompt to paste into another approved AI tool">Copy prompt instead</button>
+        <button class="btn btn-ghost" id="clear" type="button">Clear</button>
+      </div>
+      <div id="status" role="status" aria-live="polite"></div>
+    </section>
+
+    <!-- OUTPUT -->
+    <section class="card panel" aria-labelledby="out-h">
+      <h2 id="out-h"><span><span class="step">2</span>Clinical notes</span>
+        <span>
+          <button class="btn btn-primary btn-small" id="copyAll" type="button" disabled>Copy all for EMIS</button>
+        </span>
+      </h2>
+      <div id="output"><div class="empty">Your notes will appear here. Every section is editable and has its own copy button.</div></div>
+    </section>
+  </div>
+
+  <div class="footer">
+    <p>Flexylen — AI-drafted notes must be reviewed by the responsible clinician.</p>
+  </div>
+</div>
+
+<script type="module">
+import Anthropic from "https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@1.8.0/+esm";
+
+const $ = (id) => document.getElementById(id);
+const KEY_STORE = "gp-scribe-api-key";
+
+// ---------- Note formats ----------
+const FORMATS = {
+  emis: {
+    label: "EMIS / SystmOne headings",
+    sections: ["History", "Examination", "Comment", "Problem", "Plan", "Medication", "Safety netting", "Follow up"],
+    guide: `History: presenting complaint, history of presenting complaint, relevant PMH, DH (including OTC/herbal), allergies, SH (smoking, alcohol, occupation), FH, ICE (ideas, concerns, expectations), and red-flag questions asked with the answers.
+Examination: observations and findings actually stated. For telephone/video note that examination was limited.
+Comment: clinical reasoning and working impression, including differentials discussed.
+Problem: short problem title(s) in plain clinical terms suitable for choosing a coded problem (one per line). Do NOT invent SNOMED or Read codes.
+Plan: investigations, referrals, advice and shared decisions, in the order agreed.
+Medication: each medicine started, stopped, changed or continued, with dose, frequency, quantity/duration where stated, and counselling given.
+Safety netting: specific return/escalation advice given (what symptoms, what to do, timeframe), including 111/999 advice if given.
+Follow up: who, when and how.`
+  },
+  soap: {
+    label: "SOAP",
+    sections: ["Subjective", "Objective", "Assessment", "Plan", "Safety netting"],
+    guide: `Subjective: patient-reported history, symptoms, ICE, relevant PMH/DH/allergies/SH/FH, red-flag answers.
+Objective: observations, examination findings, results that are stated.
+Assessment: working diagnosis/impression and differentials, with reasoning.
+Plan: investigations, treatment (with doses), referrals, advice, follow-up.
+Safety netting: specific return/escalation advice given.`
+  },
+  smr: {
+    label: "Structured Medication Review",
+    sections: ["Reason for review", "Patient priorities", "Current medicines reviewed", "Adherence and practical issues", "Monitoring", "Changes agreed", "Shared decision making", "Plan", "Safety netting", "Follow up"],
+    guide: `Reason for review: why the SMR took place (e.g. polypharmacy, frailty, high-risk medicines).
+Patient priorities: what matters to the patient, concerns and goals.
+Current medicines reviewed: each medicine discussed with indication, effectiveness, side effects and any issue raised (one per line).
+Adherence and practical issues: adherence, formulation/device issues, OTC/herbal use.
+Monitoring: bloods, BP, other monitoring discussed or due.
+Changes agreed: each start/stop/change/dose change with rationale.
+Shared decision making: options, risks/benefits discussed and the patient's choice.
+Plan: actions for clinician, patient, community pharmacy or GP.
+Safety netting: what to watch for after changes.
+Follow up: when and how.`
+  },
+  brief: {
+    label: "Brief",
+    sections: ["Summary", "Plan", "Safety netting"],
+    guide: `Summary: 2-5 lines covering reason for contact, key history and findings, and impression.
+Plan: actions, medication changes with doses, follow-up.
+Safety netting: specific return/escalation advice given.`
+  }
+};
+
+const FLAGS_SECTION = "For clinician to check";
+
+function systemPrompt(fmt, opts) {
+  const f = FORMATS[fmt];
+  return `You are a clinical scribe for a UK NHS primary care practice. You turn a consultation transcript into an accurate clinical record entry that the clinician will review and paste into the clinical system (EMIS Web or SystmOne).
+
+Accuracy rules (most important):
+- Record only what was said or explicitly provided. Never invent symptoms, findings, observations, doses, results, diagnoses or advice.
+- If something important for this kind of consultation was not covered, do not fill the gap; instead list it under "${FLAGS_SECTION}".
+- Record negatives that were actually elicited (e.g. "No haemoptysis, no weight loss").
+- Where the transcript is ambiguous or may be a transcription error (drug names, doses, numbers, laterality), write your best reading and add it to "${FLAGS_SECTION}".
+- Attribute statements correctly: patient-reported vs clinician-observed.
+- Leave out small talk and anything not clinically relevant.
+
+Style:
+- Concise, professional clinical shorthand as used in UK general practice (e.g. "PC", "HPC", "PMH", "DH", "NKDA", "SH", "O/E", "Rx", "SN", "F/U"). Short lines, no long prose.
+- ${opts.british ? "British English spelling and UK conventions: NICE/CKS terminology, BNF drug names, units such as mmol/L, 111/999." : "Use standard clinical English."}
+- Plain text only: no markdown, no bold, no tables, no bullet symbols other than "- " at the start of a line.
+- Write the patient as "Pt" or "patient"; never add names or identifiers. Placeholders like [NHS_NUMBER] or [DOB] mean an identifier was removed: keep them out of the notes.
+
+Context: ${opts.mode} consultation by a ${opts.role}.
+
+Output format (exactly this structure, nothing before or after):
+Each section starts with a line "### " followed by the section name, then its content on the following lines.
+Use these sections in this order: ${f.sections.join(", ")}, then a final section "${FLAGS_SECTION}".
+If a section has nothing documented, write "Not documented." (do not omit the heading).
+Under "${FLAGS_SECTION}" list possible transcription errors, missing safety-critical information (e.g. allergies not checked, red flags not asked, no safety netting given), and anything the clinician should confirm. Write "None." if nothing.
+
+What goes in each section:
+${f.guide}`;
+}
+
+// ---------- Identifier redaction ----------
+const REDACTIONS = [
+  { name: "NHS_NUMBER", re: /\b\d{3}[\s-]?\d{3}[\s-]?\d{4}\b/g },
+  { name: "EMAIL", re: /\b[\w.+-]+@[\w-]+\.[\w.-]+\b/g },
+  { name: "PHONE", re: /(?:\+44\s?\(?0?\)?\s?|\b0)(?:\d[\s-]?){9,10}\b/g },
+  { name: "POSTCODE", re: /\b[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}\b/gi },
+  { name: "DOB", re: /\b(?:dob|d\.o\.b\.?|date of birth|born(?: on)?)\s*[:\-]?\s*\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}/gi },
+  { name: "DOB", re: /\b(?:dob|d\.o\.b\.?|date of birth|born(?: on)?)\s*[:\-]?\s*\d{1,2}(?:st|nd|rd|th)?\s+(?:of\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?,?\s+\d{2,4}/gi },
+];
+
+function redact(text) {
+  let count = 0;
+  let out = text;
+  for (const { name, re } of REDACTIONS) {
+    out = out.replace(re, () => { count++; return `[${name}]`; });
+  }
+  return { text: out, count };
+}
+
+// ---------- Prompt building ----------
+function currentOpts() {
+  return {
+    format: $("format").value,
+    mode: $("mode").value.toLowerCase(),
+    role: $("role").value,
+    british: $("spelling").checked,
+  };
+}
+
+function buildUserMessage() {
+  let transcript = $("transcript").value.trim();
+  let extra = $("extra").value.trim();
+  let removed = 0;
+  if ($("redact").checked) {
+    const a = redact(transcript); transcript = a.text; removed += a.count;
+    const b = redact(extra); extra = b.text; removed += b.count;
+  }
+  let msg = `<transcript>\n${transcript}\n</transcript>`;
+  if (extra) msg += `\n\n<additional_details_from_clinician>\n${extra}\n</additional_details_from_clinician>`;
+  msg += `\n\nWrite the clinical notes now.`;
+  return { msg, removed };
+}
+
+// ---------- Output parsing & rendering ----------
+function parseSections(text) {
+  const sections = [];
+  let current = null;
+  for (const line of text.split(/\r?\n/)) {
+    const m = line.match(/^#{2,4}\s*(.+?)\s*:?\s*$/);
+    if (m) {
+      current = { title: m[1].trim(), body: [] };
+      sections.push(current);
+    } else if (current) {
+      current.body.push(line);
+    } else if (line.trim()) {
+      current = { title: "Notes", body: [line] };
+      sections.push(current);
+    }
+  }
+  return sections.map(s => ({ title: s.title, body: s.body.join("\n").trim() }));
+}
+
+let rendered = [];
+
+function renderSections(sections) {
+  const out = $("output");
+  out.innerHTML = "";
+  rendered = sections;
+  sections.forEach((s, i) => {
+    const isFlags = s.title.toLowerCase() === FLAGS_SECTION.toLowerCase();
+    const wrap = document.createElement("div");
+    wrap.className = "section" + (isFlags ? " flags" : "");
+    const head = document.createElement("div");
+    head.className = "section-head";
+    const title = document.createElement("strong");
+    title.textContent = isFlags ? "⚠ " + s.title + " (not for the record)" : s.title;
+    const btn = document.createElement("button");
+    btn.className = "btn btn-ghost btn-small";
+    btn.type = "button";
+    btn.textContent = "Copy";
+    const ta = document.createElement("textarea");
+    ta.value = s.body;
+    ta.setAttribute("aria-label", s.title);
+    const autosize = () => { ta.style.height = "auto"; ta.style.height = (ta.scrollHeight + 2) + "px"; };
+    ta.addEventListener("input", () => { rendered[i].body = ta.value; autosize(); });
+    btn.addEventListener("click", () => copyText(ta.value, btn));
+    head.append(title, btn);
+    wrap.append(head, ta);
+    out.append(wrap);
+    requestAnimationFrame(autosize);
+  });
+  $("copyAll").disabled = sections.length === 0;
+}
+
+function recordText() {
+  return rendered
+    .filter(s => s.title.toLowerCase() !== FLAGS_SECTION.toLowerCase())
+    .filter(s => s.body && !/^not documented\.?$/i.test(s.body.trim()))
+    .map(s => `${s.title}:\n${s.body.trim()}`)
+    .join("\n\n");
+}
+
+async function copyText(text, btn) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const t = document.createElement("textarea");
+    t.value = text; document.body.append(t); t.select();
+    document.execCommand("copy"); t.remove();
+  }
+  if (btn) {
+    const old = btn.textContent;
+    btn.textContent = "Copied ✓";
+    setTimeout(() => (btn.textContent = old), 1500);
+  }
+}
+
+function setStatus(msg, kind = "") {
+  const s = $("status");
+  s.className = kind;
+  s.innerHTML = msg;
+}
+
+// ---------- Generation ----------
+let activeStream = null;
+
+async function generate() {
+  const transcript = $("transcript").value.trim();
+  if (transcript.split(/\s+/).length < 15) {
+    setStatus("Please paste a consultation transcript first.", "err");
+    return;
+  }
+  const apiKey = $("apiKey").value.trim();
+  if (!apiKey) {
+    $("settingsBox").open = true;
+    $("apiKey").focus();
+    setStatus("Add your Anthropic API key in Settings, or use “Copy prompt instead”.", "err");
+    return;
+  }
+  if ($("rememberKey").checked) safeStore(KEY_STORE, apiKey); else safeRemove(KEY_STORE);
+
+  const opts = currentOpts();
+  const { msg, removed } = buildUserMessage();
+  const model = $("model").value;
+
+  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
+
+  $("output").innerHTML = '<div id="live"></div>';
+  $("copyAll").disabled = true;
+  $("generate").disabled = true;
+  $("stop").hidden = false;
+  setStatus(`<span class="spinner"></span>Writing notes…${removed ? ` (${removed} identifier${removed > 1 ? "s" : ""} removed before sending)` : ""}`);
+
+  const started = Date.now();
+  try {
+    const stream = client.beta.messages.stream({
+      model,
+      max_tokens: 32000,
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      thinking: { type: "adaptive" },
+      output_config: { effort: $("effort").value },
+      system: systemPrompt(opts.format, opts),
+      messages: [{ role: "user", content: msg }],
+    });
+    activeStream = stream;
+
+    let live = "";
+    stream.on("text", (delta) => {
+      live += delta;
+      const el = $("live");
+      if (el) { el.textContent = live; el.scrollTop = el.scrollHeight; }
+    });
+
+    const final = await stream.finalMessage();
+
+    if (final.stop_reason === "refusal") {
+      $("output").innerHTML = '<div class="empty">The model declined to write these notes. Try again, or write them manually.</div>';
+      setStatus("Request declined by the model.", "err");
+      return;
+    }
+
+    const text = final.content.filter(b => b.type === "text").map(b => b.text).join("");
+    renderSections(parseSections(text));
+
+    const secs = ((Date.now() - started) / 1000).toFixed(0);
+    let note = `Done in ${secs}s. Review every section before pasting.`;
+    if (final.stop_reason === "max_tokens") note = "Output was cut short — check the last section. " + note;
+    if (removed) note += ` ${removed} identifier${removed > 1 ? "s" : ""} removed before sending.`;
+    setStatus(note, final.stop_reason === "max_tokens" ? "err" : "ok");
+  } catch (err) {
+    if (err instanceof Anthropic.APIUserAbortError) {
+      setStatus("Stopped.");
+    } else if (err instanceof Anthropic.AuthenticationError) {
+      setStatus("API key was rejected. Check it in Settings.", "err");
+    } else if (err instanceof Anthropic.RateLimitError) {
+      setStatus("Rate limited by the API — wait a moment and try again.", "err");
+    } else if (err instanceof Anthropic.APIConnectionError) {
+      setStatus("Could not reach the Anthropic API. Check your internet connection or practice firewall.", "err");
+    } else if (err instanceof Anthropic.APIError) {
+      setStatus(`API error (${err.status ?? "?"}): ${escapeHtml(err.message)}`, "err");
+    } else {
+      setStatus("Something went wrong: " + escapeHtml(String(err?.message || err)), "err");
+    }
+    const live = $("live");
+    if (live && !live.textContent) $("output").innerHTML = '<div class="empty">No notes generated.</div>';
+  } finally {
+    activeStream = null;
+    $("generate").disabled = false;
+    $("stop").hidden = true;
+  }
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function safeStore(k, v) { try { localStorage.setItem(k, v); } catch {} }
+function safeRemove(k) { try { localStorage.removeItem(k); } catch {} }
+function safeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+
+// ---------- Files ----------
+function cleanCaptions(text) {
+  // Strip WebVTT/SRT timing lines and cue numbers so only speech remains.
+  return text
+    .replace(/^WEBVTT.*$/m, "")
+    .split(/\r?\n/)
+    .filter(l => !/^\d+$/.test(l.trim()))
+    .filter(l => !/-->/.test(l))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+async function loadFile(file) {
+  if (!file) return;
+  let text = await file.text();
+  if (/\.(vtt|srt)$/i.test(file.name) || text.startsWith("WEBVTT")) text = cleanCaptions(text);
+  $("transcript").value = text;
+  updateCount();
+  setStatus(`Loaded ${escapeHtml(file.name)}.`, "ok");
+}
+
+function updateCount() {
+  const n = $("transcript").value.trim().split(/\s+/).filter(Boolean).length;
+  $("wordCount").textContent = `${n} word${n === 1 ? "" : "s"}`;
+}
+
+// ---------- Example ----------
+const SAMPLE = `Clinician: Hi, come in, take a seat. What can I help with today?
+Patient: I've had this cough for about three weeks now and it's just not shifting.
+Clinician: Okay. Is it a dry cough or are you bringing anything up?
+Patient: Bit of phlegm in the mornings, sort of yellowy-green at first but it's clearer now.
+Clinician: Any blood in it at all?
+Patient: No, nothing like that.
+Clinician: Any fevers, night sweats, weight loss?
+Patient: I had a temperature the first few days but not since. No sweats. Weight's the same.
+Clinician: Any shortness of breath or chest pain?
+Patient: Bit wheezy at night sometimes. No chest pain.
+Clinician: Do you smoke?
+Patient: I stopped five years ago. About fifteen a day for twenty years before that.
+Clinician: Well done for stopping. Any medical conditions or regular medicines?
+Patient: Just the amlodipine, five milligrams, for blood pressure. And I'm allergic to penicillin, I get a rash.
+Clinician: Thanks. What were you worried it might be?
+Patient: My wife's worried it's something on my lungs because I used to smoke. I was hoping for antibiotics to be honest.
+Clinician: That's understandable. Let me have a listen. Your temperature is 36.8, oxygen 97 percent, chest has a few wheezes on both sides but no crackles. Pulse 78 and regular.
+Clinician: So I think this is most likely a post-viral cough with some airway irritation. Antibiotics aren't going to help with that. Because it's been three weeks and you're an ex-smoker I'd like to get a chest x-ray to be safe, and I'll give you a salbutamol inhaler, two puffs up to four times a day when you're wheezy. I'll show you how to use it.
+Patient: Okay, that sounds sensible.
+Clinician: If you start coughing up blood, get more breathless, chest pain, or a high temperature come back, please contact us or 111, or 999 if severe. If it's not settling in three weeks, book in again and we'll review the x-ray result together.
+Patient: Will do, thanks.`;
+
+// ---------- Wire up ----------
+$("generate").addEventListener("click", generate);
+$("stop").addEventListener("click", () => activeStream?.abort());
+$("transcript").addEventListener("input", updateCount);
+$("loadSample").addEventListener("click", () => { $("transcript").value = SAMPLE; updateCount(); });
+$("uploadBtn").addEventListener("click", () => $("fileInput").click());
+$("fileInput").addEventListener("change", (e) => loadFile(e.target.files[0]));
+$("copyAll").addEventListener("click", (e) => copyText(recordText(), e.currentTarget));
+$("clear").addEventListener("click", () => {
+  $("transcript").value = ""; $("extra").value = "";
+  $("output").innerHTML = '<div class="empty">Your notes will appear here. Every section is editable and has its own copy button.</div>';
+  rendered = []; $("copyAll").disabled = true; setStatus(""); updateCount();
+});
+$("copyPrompt").addEventListener("click", async (e) => {
+  if (!$("transcript").value.trim()) { setStatus("Paste a transcript first.", "err"); return; }
+  const opts = currentOpts();
+  const { msg, removed } = buildUserMessage();
+  await copyText(systemPrompt(opts.format, opts) + "\n\n---\n\n" + msg, e.currentTarget);
+  setStatus(`Prompt copied${removed ? ` (${removed} identifier${removed > 1 ? "s" : ""} removed)` : ""}. Paste it into your practice-approved AI tool, then paste the result back here.`, "ok");
+  enablePasteBack();
+});
+
+// Paste-back: let notes produced elsewhere be split into sections too.
+function enablePasteBack() {
+  if ($("pasteBack")) return;
+  const box = document.createElement("div");
+  box.innerHTML = `<label for="pasteBack" style="margin-top:1rem">Paste the AI result here to split it into sections</label>
+    <textarea id="pasteBack" rows="4" placeholder="### History&#10;..."></textarea>`;
+  $("status").after(box);
+  $("pasteBack").addEventListener("input", (ev) => {
+    const secs = parseSections(ev.target.value);
+    if (secs.length) renderSections(secs);
+  });
+}
+
+const saved = safeGet(KEY_STORE);
+if (saved) { $("apiKey").value = saved; $("rememberKey").checked = true; }
+else { $("settingsBox").open = true; }
+updateCount();
+</script>
+</body>
+</html>
