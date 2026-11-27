@@ -128,8 +128,8 @@
   details.settings[open] summary { margin-bottom: .75rem; }
 
   #status { font-size: 14px; margin-top: .5rem; min-height: 1.2em; }
-  #status.err { color: var(--err); }
-  #status.ok { color: var(--ok); }
+  #status.err, #learnStatus.err { color: var(--err); }
+  #status.ok, #learnStatus.ok { color: var(--ok); }
 
   .empty { color: var(--muted); text-align: center; padding: 3rem 1rem; border: 1px dashed var(--line); border-radius: 12px; }
   .section { border: 1px solid var(--line); border-left: 4px solid var(--fx-blue); border-radius: 12px; margin-bottom: .75rem; overflow: hidden; background: var(--card); }
@@ -145,6 +145,18 @@
   .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--fx-blue-light); border-top-color: var(--fx-blue-dark); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  .learn-panel { margin-top: 1rem; }
+  .learn-panel[hidden] { display: none; }
+  .learn-panel h2 .hint { font-family: "Nunito", system-ui, sans-serif; }
+  .learn-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 1rem; }
+  .learn-block { border: 1px solid var(--line); border-radius: 12px; padding: 1rem; background: var(--card); }
+  .learn-block h3 { font-family: "Fredoka", "Nunito", sans-serif; color: var(--heading); font-size: 17px; font-weight: 600; margin-bottom: .6rem; }
+  .learn-block textarea { min-height: 70px; margin-bottom: .6rem; }
+  .gap { border-left: 4px solid var(--fx-yellow); padding: .3rem 0 .3rem .7rem; margin-bottom: .7rem; font-size: 14px; }
+  .gap strong { display: block; }
+  .tc-q { border-top: 1px solid var(--line); padding-top: .6rem; margin-top: .6rem; font-size: 14px; }
+  .tc-q ol { margin: .3rem 0 .3rem 1.2rem; }
+  .tc-q .ans { color: var(--ok); font-weight: 700; }
   .footer { text-align: center; padding: 1.5rem; color: var(--muted); font-size: 14px; }
   .footer a { color: var(--heading); font-weight: 700; }
 
@@ -210,6 +222,10 @@
               <option value="xhigh">Very high (slower)</option>
             </select>
           </div>
+        </div>
+        <div class="field" style="margin:.9rem 0 0">
+          <label for="practiceLabUrl">Flexylen PracticeLab address <span class="hint">(for “Send to PracticeLab”)</span></label>
+          <input type="text" id="practiceLabUrl" placeholder="https://your-practicelab-address" autocomplete="off" inputmode="url">
         </div>
       </details>
 
@@ -279,6 +295,18 @@
     </section>
   </div>
 
+  <!-- LEARNING (optional, after notes) -->
+  <section class="card panel learn-panel" id="learnCard" aria-labelledby="learn-h" hidden>
+    <h2 id="learn-h"><span><span class="step">3</span>Learning from this consultation <span class="hint">(optional)</span></span>
+      <span>
+        <button class="btn btn-primary btn-small" id="genLearning" type="button">Generate learning</button>
+      </span>
+    </h2>
+    <p class="meta">Turns this consultation into a CPD reflection, knowledge-gap prompts and an anonymised teaching case for Flexylen PracticeLab. It is kept separate from the clinical record and is written without patient identifiers — check it before you share it.</p>
+    <div id="learnStatus" role="status" aria-live="polite"></div>
+    <div id="learnOut"></div>
+  </section>
+
   <div class="footer">
     <p>Flexylen — AI-drafted notes must be reviewed by the responsible clinician.</p>
   </div>
@@ -289,6 +317,7 @@ import Anthropic from "https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@1.8.0/+esm
 
 const $ = (id) => document.getElementById(id);
 const KEY_STORE = "gp-scribe-api-key";
+const PL_STORE = "flexylen-practicelab-url";
 
 // ---------- Note formats ----------
 const FORMATS = {
@@ -493,6 +522,20 @@ function setStatus(msg, kind = "") {
 
 // ---------- Generation ----------
 let activeStream = null;
+let lastConsult = null;   // { msg (identifier-stripped transcript message), opts } from the last successful note
+
+// Returns [html message, status class] for an error from the Anthropic SDK.
+function describeError(err) {
+  if (err instanceof Anthropic.APIUserAbortError) return ["Stopped.", ""];
+  if (err instanceof Anthropic.AuthenticationError) return ["API key was rejected. Check it in Settings.", "err"];
+  if (err instanceof Anthropic.RateLimitError) return ["Rate limited by the API — wait a moment and try again.", "err"];
+  if (err instanceof Anthropic.APIConnectionError) return ["Could not connect to the Anthropic API. Common causes:<br>" +
+    "• The page is open in an app’s file preview (e.g. a Files, email or chat attachment viewer), which blocks internet access. Open it in Chrome, Edge or Safari instead.<br>" +
+    "• No internet connection.<br>" +
+    "• A practice network or firewall blocking <strong>api.anthropic.com</strong>. Ask IT to allow it, or try on another network.", "err"];
+  if (err instanceof Anthropic.APIError) return [`API error (${err.status ?? "?"}): ${escapeHtml(err.message)}`, "err"];
+  return ["Something went wrong: " + escapeHtml(String(err?.message || err)), "err"];
+}
 
 async function generate() {
   const transcript = $("transcript").value.trim();
@@ -552,6 +595,8 @@ async function generate() {
 
     const text = final.content.filter(b => b.type === "text").map(b => b.text).join("");
     renderSections(parseSections(text));
+    lastConsult = { msg, opts };
+    resetLearning(true);
 
     const secs = ((Date.now() - started) / 1000).toFixed(0);
     let note = `Done in ${secs}s. Review every section before pasting.`;
@@ -559,22 +604,7 @@ async function generate() {
     if (removed) note += ` ${removed} identifier${removed > 1 ? "s" : ""} removed before sending.`;
     setStatus(note, final.stop_reason === "max_tokens" ? "err" : "ok");
   } catch (err) {
-    if (err instanceof Anthropic.APIUserAbortError) {
-      setStatus("Stopped.");
-    } else if (err instanceof Anthropic.AuthenticationError) {
-      setStatus("API key was rejected. Check it in Settings.", "err");
-    } else if (err instanceof Anthropic.RateLimitError) {
-      setStatus("Rate limited by the API — wait a moment and try again.", "err");
-    } else if (err instanceof Anthropic.APIConnectionError) {
-      setStatus("Could not connect to the Anthropic API. Common causes:<br>" +
-        "• The page is open in an app’s file preview (e.g. a Files, email or chat attachment viewer), which blocks internet access. Open it in Chrome, Edge or Safari instead.<br>" +
-        "• No internet connection.<br>" +
-        "• A practice network or firewall blocking <strong>api.anthropic.com</strong>. Ask IT to allow it, or try on another network.", "err");
-    } else if (err instanceof Anthropic.APIError) {
-      setStatus(`API error (${err.status ?? "?"}): ${escapeHtml(err.message)}`, "err");
-    } else {
-      setStatus("Something went wrong: " + escapeHtml(String(err?.message || err)), "err");
-    }
+    setStatus(...describeError(err));
     const live = $("live");
     if (live && !live.textContent) $("output").innerHTML = '<div class="empty">No notes generated.</div>';
   } finally {
@@ -591,6 +621,204 @@ function escapeHtml(s) {
 function safeStore(k, v) { try { localStorage.setItem(k, v); } catch {} }
 function safeRemove(k) { try { localStorage.removeItem(k); } catch {} }
 function safeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+
+// ---------- Learning (optional, separate from the clinical record) ----------
+const LEARN_PROMPT = `You are a clinical educator for UK NHS primary care. From a consultation transcript and the clinician's notes, you create learning for the clinician's own continuing professional development (CPD). This is kept separate from the patient record.
+
+Privacy (essential): the output will be stored in an e-learning platform. Never include names, dates, places, NHS numbers, employers, or any detail that could identify the patient or other people. Give age as a decade band (e.g. "in their 60s"). Omit or generalise rare or distinctive details. Placeholders like [NHS_NUMBER] mean an identifier was removed: leave them out.
+
+Accuracy: base everything on what happened in the consultation. Do not invent findings. When pointing to guidance, name the source (e.g. "NICE NG238", "BNF: atorvastatin", "NICE CKS: cough") without URLs or recommendation numbers you are unsure of. Use British English and UK conventions.
+
+Write in the first person as the clinician for the CPD reflection, concise and specific (2-4 sentences per field):
+- learned: what I learned from this consultation.
+- knowledge: what knowledge or guidance I checked or updated.
+- differently: what I will do differently in practice.
+- evidence: how I will evidence the impact (e.g. audit, peer discussion, supervision).
+
+knowledgeGaps: 2-4 specific, constructive prompts where the consultation suggests learning could help (e.g. a red-flag question not asked, a dose or interaction to confirm, safety-netting that could be more specific). If the consultation was exemplary, use them to consolidate good practice. Each has a topic, why (linked to what happened), and guidance (source to read).
+
+teachingCase: an anonymised teaching case for other clinicians based on this consultation: a short title, the setting (e.g. "Face-to-face GP appointment"), a vignette of 80-160 words, and 3 single-best-answer questions with exactly 4 options each, the index (0-3) of the correct option, and a teaching explanation. Vary the position of the correct answer.
+
+tags: 2-5 short topic tags (e.g. "Respiratory", "Antimicrobial stewardship").`;
+
+const LEARN_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["title", "tags", "cpd", "knowledgeGaps", "teachingCase"],
+  properties: {
+    title: { type: "string", description: "Short title for this learning, without identifiers" },
+    tags: { type: "array", items: { type: "string" } },
+    cpd: {
+      type: "object", additionalProperties: false,
+      required: ["learned", "knowledge", "differently", "evidence"],
+      properties: { learned: { type: "string" }, knowledge: { type: "string" }, differently: { type: "string" }, evidence: { type: "string" } },
+    },
+    knowledgeGaps: {
+      type: "array",
+      items: { type: "object", additionalProperties: false, required: ["topic", "why", "guidance"],
+        properties: { topic: { type: "string" }, why: { type: "string" }, guidance: { type: "string" } } },
+    },
+    teachingCase: {
+      type: "object", additionalProperties: false,
+      required: ["title", "setting", "vignette", "questions"],
+      properties: {
+        title: { type: "string" }, setting: { type: "string" }, vignette: { type: "string" },
+        questions: { type: "array", items: { type: "object", additionalProperties: false,
+          required: ["question", "options", "answer", "explanation"],
+          properties: { question: { type: "string" }, options: { type: "array", items: { type: "string" } },
+            answer: { type: "integer" }, explanation: { type: "string" } } } },
+      },
+    },
+  },
+};
+
+const CPD_FIELDS = [
+  ["learned", "What did I learn?"],
+  ["knowledge", "What knowledge did I update?"],
+  ["differently", "What will I do differently?"],
+  ["evidence", "How will I evidence impact?"],
+];
+
+let learning = null;   // the generated learning package (edited CPD fields are read back on export)
+
+function setLearnStatus(msg, kind = "") { const s = $("learnStatus"); s.className = kind; s.innerHTML = msg; s.style.margin = msg ? ".6rem 0" : "0"; }
+
+function resetLearning(show) {
+  learning = null;
+  $("learnOut").innerHTML = "";
+  setLearnStatus("");
+  $("learnCard").hidden = !show;
+  $("genLearning").textContent = "Generate learning";
+}
+
+async function generateLearning() {
+  const apiKey = $("apiKey").value.trim();
+  if (!apiKey || !lastConsult) { setLearnStatus("Generate the clinical notes first.", "err"); return; }
+  const notes = rendered.filter(s => s.body).map(s => `${s.title}:\n${s.body}`).join("\n\n");
+  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
+  $("genLearning").disabled = true;
+  setLearnStatus('<span class="spinner"></span>Creating learning…');
+  try {
+    const stream = client.beta.messages.stream({
+      model: $("model").value,
+      max_tokens: 32000,
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      thinking: { type: "adaptive" },
+      output_config: { effort: $("effort").value, format: { type: "json_schema", schema: LEARN_SCHEMA } },
+      system: LEARN_PROMPT,
+      messages: [{ role: "user", content:
+        `Consultation type: ${lastConsult.opts.mode}. Clinician: ${lastConsult.opts.role}.\n\n${lastConsult.msg.replace(/\n\nWrite the clinical notes now\.$/, "")}\n\n<clinician_notes>\n${notes}\n</clinician_notes>\n\nCreate the learning now.` }],
+    });
+    const final = await stream.finalMessage();
+    if (final.stop_reason === "refusal") { setLearnStatus("The model declined to create learning for this consultation.", "err"); return; }
+    if (final.stop_reason === "max_tokens") { setLearnStatus("The learning was cut short. Please try again.", "err"); return; }
+    const text = final.content.filter(b => b.type === "text").map(b => b.text).join("");
+    let data;
+    try { data = JSON.parse(text); } catch { setLearnStatus("The learning came back in an unexpected format. Please try again.", "err"); return; }
+    learning = { ...data, source: "flexylen-scribe", version: 1, createdAt: new Date().toISOString(),
+      consultationType: lastConsult.opts.mode, clinicianRole: lastConsult.opts.role };
+    renderLearning();
+    setLearnStatus("Draft learning ready. Edit the reflection in your own words, and check nothing could identify the patient before sending.", "ok");
+    $("genLearning").textContent = "Regenerate";
+  } catch (err) {
+    setLearnStatus(...describeError(err));
+  } finally {
+    $("genLearning").disabled = false;
+  }
+}
+
+function renderLearning() {
+  const L = learning;
+  const out = $("learnOut");
+  out.innerHTML = "";
+  const block = (title) => { const b = document.createElement("div"); b.className = "learn-block"; const h = document.createElement("h3"); h.textContent = title; b.append(h); return b; };
+
+  const cpd = block("CPD reflection");
+  CPD_FIELDS.forEach(([k, q]) => {
+    const lab = document.createElement("label"); lab.textContent = q; lab.htmlFor = "cpd-" + k;
+    const ta = document.createElement("textarea"); ta.id = "cpd-" + k; ta.rows = 3; ta.value = L.cpd[k] || "";
+    ta.addEventListener("input", () => { L.cpd[k] = ta.value; });
+    cpd.append(lab, ta);
+  });
+
+  const gaps = block("Knowledge-gap prompts");
+  (L.knowledgeGaps || []).forEach(g => {
+    const d = document.createElement("div"); d.className = "gap";
+    const t = document.createElement("strong"); t.textContent = g.topic;
+    const w = document.createElement("div"); w.textContent = g.why;
+    const s = document.createElement("div"); s.className = "meta"; s.textContent = "Read: " + g.guidance;
+    d.append(t, w, s); gaps.append(d);
+  });
+
+  const tc = block("Teaching case: " + (L.teachingCase?.title || ""));
+  const meta = document.createElement("div"); meta.className = "meta"; meta.textContent = L.teachingCase?.setting || "";
+  const vig = document.createElement("p"); vig.style.fontSize = "14px"; vig.style.margin = ".4rem 0"; vig.textContent = L.teachingCase?.vignette || "";
+  tc.append(meta, vig);
+  (L.teachingCase?.questions || []).forEach((q, i) => {
+    const d = document.createElement("div"); d.className = "tc-q";
+    const qs = document.createElement("strong"); qs.textContent = `Q${i + 1}. ${q.question}`;
+    const ol = document.createElement("ol"); ol.type = "A";
+    q.options.forEach((o, oi) => { const li = document.createElement("li"); li.textContent = o; if (oi === q.answer) li.className = "ans"; ol.append(li); });
+    const ex = document.createElement("div"); ex.className = "meta"; ex.textContent = q.explanation;
+    d.append(qs, ol, ex); tc.append(d);
+  });
+
+  const grid = document.createElement("div"); grid.className = "learn-grid";
+  grid.append(cpd, gaps, tc);
+
+  const actions = document.createElement("div"); actions.className = "actions";
+  const mk = (label, cls, fn) => { const b = document.createElement("button"); b.type = "button"; b.className = "btn " + cls; b.textContent = label; b.addEventListener("click", (e) => fn(e.currentTarget)); return b; };
+  actions.append(
+    mk("Send to PracticeLab", "btn-primary", sendToPracticeLab),
+    mk("Copy reflection", "btn-ghost", (btn) => copyText(learningText(), btn)),
+    mk("Download (.json)", "btn-ghost", downloadLearning),
+  );
+  out.append(grid, actions);
+}
+
+function learningText() {
+  const L = learning;
+  const lines = [L.title, "", "CPD reflection"];
+  CPD_FIELDS.forEach(([k, q]) => lines.push(`${q}\n${L.cpd[k]}`, ""));
+  lines.push("Knowledge-gap prompts");
+  L.knowledgeGaps.forEach(g => lines.push(`- ${g.topic}: ${g.why} (Read: ${g.guidance})`));
+  return lines.join("\n");
+}
+
+function downloadLearning() {
+  const blob = new Blob([JSON.stringify(learning, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `flexylen-learning-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// Packs the learning into the URL fragment (#...), which browsers never send to a server,
+// and opens PracticeLab's import page. PracticeLab stores it in the learner's own browser.
+function toBase64Url(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = ""; bytes.forEach(b => { bin += String.fromCharCode(b); });
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function sendToPracticeLab() {
+  let base = $("practiceLabUrl").value.trim().replace(/\/+$/, "");
+  if (!/^https:\/\/[^\s]+$/i.test(base)) {
+    $("settingsBox").open = true;
+    $("practiceLabUrl").focus();
+    setLearnStatus("Add your Flexylen PracticeLab address (starting https://) in Settings first.", "err");
+    return;
+  }
+  safeStore(PL_STORE, base);
+  const url = `${base}/import#flexylen-learning=${toBase64Url(JSON.stringify(learning))}`;
+  const win = window.open(url, "_blank");
+  if (win) win.opener = null;
+  setLearnStatus(win
+    ? "Opened PracticeLab in a new tab. Review the import there and save it to your CPD record."
+    : `Your browser blocked the new tab — <a href="${escapeHtml(url)}" target="_blank" rel="noopener">open PracticeLab here</a>.`, win ? "ok" : "err");
+}
 
 // ---------- Files ----------
 function cleanCaptions(text) {
@@ -644,6 +872,7 @@ Patient: Will do, thanks.`;
 
 // ---------- Wire up ----------
 $("generate").addEventListener("click", generate);
+$("genLearning").addEventListener("click", generateLearning);
 $("stop").addEventListener("click", () => activeStream?.abort());
 $("transcript").addEventListener("input", updateCount);
 $("loadSample").addEventListener("click", () => { $("transcript").value = SAMPLE; updateCount(); });
@@ -654,6 +883,7 @@ $("clear").addEventListener("click", () => {
   $("transcript").value = ""; $("extra").value = "";
   $("output").innerHTML = '<div class="empty">Your notes will appear here. Every section is editable and has its own copy button.</div>';
   rendered = []; $("copyAll").disabled = true; setStatus(""); updateCount();
+  lastConsult = null; resetLearning(false);
 });
 $("copyPrompt").addEventListener("click", async (e) => {
   if (!$("transcript").value.trim()) { setStatus("Paste a transcript first.", "err"); return; }
@@ -677,6 +907,8 @@ function enablePasteBack() {
   });
 }
 
+const savedPL = safeGet(PL_STORE);
+if (savedPL) $("practiceLabUrl").value = savedPL;
 const saved = safeGet(KEY_STORE);
 if (saved) { $("apiKey").value = saved; $("rememberKey").checked = true; }
 else { $("settingsBox").open = true; }
