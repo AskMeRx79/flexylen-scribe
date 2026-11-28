@@ -805,7 +805,7 @@ function toBase64Url(str) {
 
 function sendToPracticeLab() {
   let base = $("practiceLabUrl").value.trim().replace(/\/+$/, "");
-  if (!/^https:\/\/[^\s]+$/i.test(base)) {
+  if (!/^(https:\/\/\S+|http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/\S*)?)$/i.test(base)) {
     $("settingsBox").open = true;
     $("practiceLabUrl").focus();
     setLearnStatus("Add your Flexylen PracticeLab address (starting https://) in Settings first.", "err");
@@ -907,8 +907,8 @@ function enablePasteBack() {
   });
 }
 
-const savedPL = safeGet(PL_STORE);
-if (savedPL) $("practiceLabUrl").value = savedPL;
+const DEFAULT_PRACTICELAB = "https://askmerx79.github.io/casecraft-practice-pathways";
+$("practiceLabUrl").value = safeGet(PL_STORE) || DEFAULT_PRACTICELAB;
 const saved = safeGet(KEY_STORE);
 if (saved) { $("apiKey").value = saved; $("rememberKey").checked = true; }
 else { $("settingsBox").open = true; }

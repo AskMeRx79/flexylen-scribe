@@ -23,7 +23,7 @@ After the notes are generated, **Generate learning** creates, separately from th
 
 The learning is written without patient identifiers (age as a decade band, no names, dates or places). The clinician should still check it before sharing.
 
-**Send to PracticeLab** opens `<PracticeLab address>/import#flexylen-learning=<data>`. Set the address under Settings. The data sits in the URL fragment, which browsers never send to a server, and PracticeLab saves it in the learner's own browser. **Copy reflection** and **Download (.json)** are alternatives.
+**Send to PracticeLab** opens `<PracticeLab address>/import#flexylen-learning=<data>`. The address defaults to https://askmerx79.github.io/casecraft-practice-pathways and can be changed under Settings. The data sits in the URL fragment, which browsers never send to a server, and PracticeLab saves it in the learner's own browser. **Copy reflection** and **Download (.json)** are alternatives.
 
 ### Learning package format
 
